@@ -1,63 +1,51 @@
 package com.smartfleet.controller;
 
-import com.smartfleet.dto.TripResponseDTO;
-import com.smartfleet.service.TripService;
+import com.smartfleet.dto.TripDTO;
+import com.smartfleet.entity.Trip;
+import com.smartfleet.repository.TripRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
-/**
- * Trip Controller for trip management
- */
 @RestController
 @RequestMapping("/api/trips")
 @RequiredArgsConstructor
-@Slf4j
+@CrossOrigin(origins = "*")
 public class TripController {
 
-    private final TripService tripService;
+    private final TripRepository tripRepository;
 
-    /**
-     * GET: Get all trips
-     */
-    @GetMapping
-    public ResponseEntity<List<TripResponseDTO>> getAllTrips() {
-        log.info("Fetching all trips");
-        List<TripResponseDTO> trips = tripService.getAllTrips();
-        return ResponseEntity.ok(trips);
-    }
-
-    /**
-     * GET: Get trip by ID
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<TripResponseDTO> getTripById(@PathVariable Long id) {
-        log.info("Fetching trip by ID: {}", id);
-        TripResponseDTO trip = tripService.getTripById(id);
-        return ResponseEntity.ok(trip);
-    }
-
-    /**
-     * GET: Get trips by driver ID
-     */
     @GetMapping("/driver/{driverId}")
-    public ResponseEntity<List<TripResponseDTO>> getTripsByDriver(@PathVariable Long driverId) {
-        log.info("Fetching trips for driver: {}", driverId);
-        List<TripResponseDTO> trips = tripService.getTripsByDriver(driverId);
-        return ResponseEntity.ok(trips);
+    public ResponseEntity<List<TripDTO>> getTripsByDriver(@PathVariable Long driverId) {
+        List<Trip> trips = tripRepository.findByDriverId(driverId);
+        return ResponseEntity.ok(trips.stream().map(this::convertToDTO).collect(Collectors.toList()));
     }
 
-    /**
-     * GET: Get trips by vehicle ID
-     */
-    @GetMapping("/vehicle/{vehicleId}")
-    public ResponseEntity<List<TripResponseDTO>> getTripsByVehicle(@PathVariable Long vehicleId) {
-        log.info("Fetching trips for vehicle: {}", vehicleId);
-        List<TripResponseDTO> trips = tripService.getTripsByVehicle(vehicleId);
-        return ResponseEntity.ok(trips);
+    // === ENDPOINT NOU: DELETE TRIP ===
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteTrip(@PathVariable Long id) {
+        if (tripRepository.existsById(id)) {
+            tripRepository.deleteById(id);
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 
+    // Helper
+    private TripDTO convertToDTO(Trip trip) {
+        TripDTO dto = new TripDTO();
+        dto.setId(trip.getId());
+        dto.setStartLocation(trip.getStartLocation());
+        dto.setEndLocation(trip.getEndLocation());
+        dto.setStatus(trip.getStatus());
+        dto.setDistance(trip.getDistance());
+        dto.setStartTime(trip.getStartTime());
+        dto.setEndTime(trip.getEndTime());
+        return dto;
+    }
 }

@@ -1,139 +1,109 @@
 <template>
-  <div class="p-6 bg-gray-100 min-h-screen">
-    <h2 class="text-3xl font-bold text-gray-800 mb-6">🤖 AI Route Planner</h2>
-
-    <div class="space-y-6">
-      <!-- Input Card -->
-      <div class="bg-white rounded-lg shadow-lg p-6">
-        <h3 class="text-xl font-bold mb-4">📍 Plan Your Route</h3>
-
-        <div class="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Start Location</label>
-            <input
-              v-model="startLocation"
-              type="text"
-              placeholder="e.g., Cluj-Napoca"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">End Location</label>
-            <input
-              v-model="endLocation"
-              type="text"
-              placeholder="e.g., Brașov"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-          </div>
+  <div class="h-full flex flex-col p-4 bg-gray-100">
+    <h2 class="text-2xl font-bold mb-4">🤖 AI Route Planner</h2>
+    
+    <div class="flex gap-4 h-full">
+      <div class="w-1/3 bg-white p-4 rounded shadow-lg flex flex-col gap-4">
+        <div>
+          <label class="font-bold block mb-1">Start Location</label>
+          <input v-model="startCity" class="w-full border p-2 rounded" placeholder="e.g. Arad">
         </div>
-
-        <button
-          @click="planRoute"
-          class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition"
-        >
-          🗺️ Plan Route
+        <div>
+          <label class="font-bold block mb-1">End Location</label>
+          <input v-model="endCity" class="w-full border p-2 rounded" placeholder="e.g. Brasov">
+        </div>
+        
+        <button @click="planRoute" :disabled="loading" class="bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 disabled:opacity-50">
+          {{ loading ? 'Calculating...' : '🗺️ Plan Route' }}
         </button>
-      </div>
 
-      <!-- Route Suggestion Card -->
-      <div v-if="routeSuggestion" class="bg-white rounded-lg shadow-lg p-6">
-        <h3 class="text-xl font-bold mb-4">✅ Optimized Route</h3>
-
-        <div class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div class="bg-blue-50 p-4 rounded-lg">
-              <p class="text-sm text-gray-600">Distance</p>
-              <p class="text-2xl font-bold text-blue-600">{{ routeSuggestion.distance }}</p>
-            </div>
-            <div class="bg-green-50 p-4 rounded-lg">
-              <p class="text-sm text-gray-600">Estimated Time</p>
-              <p class="text-2xl font-bold text-green-600">{{ routeSuggestion.time }}</p>
-            </div>
-            <div class="bg-orange-50 p-4 rounded-lg">
-              <p class="text-sm text-gray-600">Fuel Consumption</p>
-              <p class="text-2xl font-bold text-orange-600">{{ routeSuggestion.fuel }}</p>
-            </div>
-            <div class="bg-purple-50 p-4 rounded-lg">
-              <p class="text-sm text-gray-600">Cost (Estimated)</p>
-              <p class="text-2xl font-bold text-purple-600">{{ routeSuggestion.cost }}</p>
-            </div>
-          </div>
-
-          <div class="bg-gray-50 p-4 rounded-lg">
-            <p class="font-semibold text-gray-800 mb-2">🛣️ Route Details</p>
-            <ul class="text-sm text-gray-700 space-y-2">
-              <li>✓ Route optimized for fuel efficiency</li>
-              <li>✓ Avoids traffic congestion</li>
-              <li>✓ Recommended stops: {{ routeSuggestion.stops }}</li>
-              <li>✓ Road conditions: Good</li>
-            </ul>
-          </div>
+        <div v-if="stats" class="mt-4 p-4 bg-blue-50 rounded border border-blue-200">
+          <h3 class="font-bold text-lg mb-2">Optimized Route</h3>
+          <p>📏 Distance: <strong>{{ (stats.distance / 1000).toFixed(1) }} km</strong></p>
+          <p>⏱️ Time: <strong>{{ (stats.time / 60).toFixed(0) }} min</strong></p>
+          <p>⛽ Fuel Est: <strong>{{ (stats.distance / 1000 * 0.08).toFixed(1) }} L</strong></p>
         </div>
       </div>
 
-      <!-- AI Tips Card -->
-      <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-lg p-6 border border-blue-200">
-        <h3 class="text-xl font-bold mb-4">💡 AI Optimization Tips</h3>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="flex space-x-3">
-            <span class="text-2xl">⚡</span>
-            <div>
-              <p class="font-semibold text-gray-800">Smooth Acceleration</p>
-              <p class="text-sm text-gray-600">Gradual speed changes save 5-10% fuel</p>
-            </div>
-          </div>
-
-          <div class="flex space-x-3">
-            <span class="text-2xl">🎯</span>
-            <div>
-              <p class="font-semibold text-gray-800">Optimal Speed</p>
-              <p class="text-sm text-gray-600">50-90 km/h is most efficient</p>
-            </div>
-          </div>
-
-          <div class="flex space-x-3">
-            <span class="text-2xl">💨</span>
-            <div>
-              <p class="font-semibold text-gray-800">Reduce Air Drag</p>
-              <p class="text-sm text-gray-600">Remove roof racks when not needed</p>
-            </div>
-          </div>
-
-          <div class="flex space-x-3">
-            <span class="text-2xl">⏰</span>
-            <div>
-              <p class="font-semibold text-gray-800">Avoid Rush Hours</p>
-              <p class="text-sm text-gray-600">Plan trips during off-peak hours</p>
-            </div>
-          </div>
-        </div>
+      <div class="flex-1 bg-white rounded shadow-lg overflow-hidden relative">
+        <div id="routeMap" class="w-full h-full"></div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
-const startLocation = ref('')
-const endLocation = ref('')
-const routeSuggestion = ref(null)
+const map = ref(null)
+const startCity = ref('Arad')
+const endCity = ref('Cluj-Napoca')
+const loading = ref(false)
+const stats = ref(null)
+const routeLayer = ref(null)
 
-const planRoute = () => {
-  if (!startLocation.value || !endLocation.value) {
-    alert('Please enter both start and end locations')
-    return
+const API_KEY = '7022be7caa6d4cdfa09c1e5a8d963359' // Cheia ta Geoapify
+
+onMounted(() => {
+  map.value = L.map('routeMap').setView([46.0, 24.0], 7)
+  L.tileLayer(`https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${API_KEY}`, {
+    attribution: 'Geoapify', maxZoom: 20
+  }).addTo(map.value)
+})
+
+// Funcție ajutătoare pentru fetch fără header de autorizare
+const fetchGeoapify = async (url) => {
+  // Folosim fetch nativ, care NU include token-ul de backend
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Geoapify Error: ${response.statusText}`)
   }
+  return await response.json()
+}
 
-  // Simulate AI route planning
-  routeSuggestion.value = {
-    distance: '245 km',
-    time: '3h 45m',
-    fuel: '18.5L',
-    cost: '$28.50',
-    stops: '2 (180 km, 240 km)'
+const getCoords = async (city) => {
+  const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(city)}&apiKey=${API_KEY}`
+  const data = await fetchGeoapify(url)
+  
+  if (data.features && data.features.length > 0) {
+    const coords = data.features[0].geometry.coordinates
+    return { lat: coords[1], lng: coords[0] }
+  }
+  throw new Error(`City not found: ${city}`)
+}
+
+const planRoute = async () => {
+  loading.value = true
+  if(routeLayer.value) map.value.removeLayer(routeLayer.value)
+  stats.value = null
+  
+  try {
+    const start = await getCoords(startCity.value)
+    const end = await getCoords(endCity.value)
+
+    const routeUrl = `https://api.geoapify.com/v1/routing?waypoints=${start.lat},${start.lng}|${end.lat},${end.lng}&mode=drive&apiKey=${API_KEY}`
+    const data = await fetchGeoapify(routeUrl)
+    
+    const routeData = data.features[0]
+    stats.value = routeData.properties
+
+    // Desenăm ruta (inversăm coordonatele pentru Leaflet: [lat, lng])
+    const geometry = routeData.geometry.coordinates[0].map(c => [c[1], c[0]]) 
+    routeLayer.value = L.polyline(geometry, { color: 'blue', weight: 5 }).addTo(map.value)
+    
+    // Zoom pe rută
+    map.value.fitBounds(routeLayer.value.getBounds(), { padding: [50, 50] })
+
+    // Adăugăm markeri
+    L.marker([start.lat, start.lng]).addTo(map.value).bindPopup('Start: ' + startCity.value).openPopup()
+    L.marker([end.lat, end.lng]).addTo(map.value).bindPopup('End: ' + endCity.value)
+
+  } catch (error) {
+    alert('Error planning route: ' + error.message)
+  } finally {
+    loading.value = false
   }
 }
 </script>

@@ -7,10 +7,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * Driver entity representing drivers in the fleet
- * CRITICAL: vehicle_id is nullable - drivers can have no vehicle assigned
- */
 @Entity
 @Table(name = "driver")
 @Data
@@ -30,14 +26,17 @@ public class Driver {
     private String name;
 
     @Column(length = 50)
-    private String license; // Driver's license number
+    private String license;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vehicle_id", nullable = true)
-    private Vehicle vehicle; // CRITICAL: Nullable - vehicle assignment is optional
+    private Vehicle vehicle;
 
     @Column(length = 20)
-    private String status; // AVAILABLE, ON_TRIP, OFF_DUTY, ACTIVE, INACTIVE, SUSPENDED, ON_LEAVE
+    private String status;
+
+    @Column(name = "avatar_url")
+    private String avatarUrl; // CAMP NOU: Poza de profil
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -51,5 +50,4 @@ public class Driver {
             status = "AVAILABLE";
         }
     }
-
 }

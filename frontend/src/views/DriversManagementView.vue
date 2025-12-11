@@ -1,78 +1,69 @@
 <template>
   <div class="p-6">
-    <h1 class="text-2xl font-bold mb-6">Driver Management</h1>
+    <h1 class="text-2xl font-bold mb-6 text-gray-800">Driver Management</h1>
 
-    <!-- DEBUG Panel -->
-    <div class="bg-yellow-100 p-4 rounded mb-4">
-      <p><strong>Token:</strong> {{ authStore.token ? 'EXISTS ✅' : 'MISSING ❌' }}</p>
-      <p><strong>Role:</strong> {{ authStore.userRole }}</p>
-      <p><strong>Drivers Count:</strong> {{ drivers.length }}</p>
-    </div>
-
-    <!-- Refresh Button -->
-    <button 
-      @click="fetchDrivers"
-      class="mb-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+    <button @click="fetchDrivers" class="mb-6 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2">
       🔄 Refresh Drivers
     </button>
 
-    <!-- Drivers Table -->
     <div class="bg-white rounded-lg shadow overflow-hidden">
-      <table class="min-w-full">
-        <thead class="bg-gray-50">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-gray-50 border-b">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">License</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehicle</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trips</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            <th class="p-4 text-gray-600 font-semibold">Name</th>
+            <th class="p-4 text-gray-600 font-semibold">Details</th>
+            <th class="p-4 text-gray-600 font-semibold">Vehicle</th>
+            <th class="p-4 text-gray-600 font-semibold">Status</th>
+            <th class="p-4 text-gray-600 font-semibold">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200">
+        <tbody>
           <tr v-if="drivers.length === 0">
-            <td colspan="8" class="px-6 py-8 text-center text-gray-500">
-              No drivers found. Create a driver account via registration.
-            </td>
+            <td colspan="5" class="p-6 text-center text-gray-500">No drivers found.</td>
           </tr>
-          <tr v-for="driver in drivers" :key="driver.id">
-            <td class="px-6 py-4">
-              <div class="font-medium">{{ driver.name }}</div>
+          <tr v-for="driver in drivers" :key="driver.id" class="border-b hover:bg-gray-50 transition">
+            
+            <td class="p-4 flex items-center gap-3">
+              <img 
+                :src="driver.avatarUrl ? 'http://localhost:8080' + driver.avatarUrl : 'https://via.placeholder.com/40'" 
+                class="w-10 h-10 rounded-full border border-gray-300 object-cover"
+              />
+              <div>
+                <p class="font-bold text-gray-800">{{ driver.name }}</p>
+                <p class="text-xs text-gray-500">@{{ driver.username }}</p>
+              </div>
             </td>
-            <td class="px-6 py-4 text-sm">{{ driver.username }}</td>
-            <td class="px-6 py-4 text-sm text-gray-500">{{ driver.email }}</td>
-            <td class="px-6 py-4 text-sm">{{ driver.license }}</td>
-            <td class="px-6 py-4 text-sm">
-              <span v-if="driver.vehiclePlate" class="text-blue-600">
+
+            <td class="p-4">
+              <p class="text-sm text-gray-600">{{ driver.email }}</p>
+              <p class="text-xs text-gray-400">Lic: {{ driver.license }}</p>
+            </td>
+
+            <td class="p-4">
+              <span v-if="driver.vehiclePlate" class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold">
                 {{ driver.vehicleBrand }} - {{ driver.vehiclePlate }}
               </span>
-              <span v-else class="text-gray-400">No vehicle assigned</span>
+              <span v-else class="text-gray-400 text-sm italic">Unassigned</span>
             </td>
-            <td class="px-6 py-4">
-              <span :class="statusClass(driver.status)" class="px-2 py-1 rounded text-xs">
+
+            <td class="p-4">
+              <span :class="getStatusClass(driver.status)" class="px-3 py-1 rounded-full text-xs font-bold">
                 {{ driver.status }}
               </span>
             </td>
-            <td class="px-6 py-4 text-sm">{{ driver.tripCount || 0 }}</td>
-            <td class="px-6 py-4 text-sm space-x-2">
-              <button 
-                @click="assignVehicle(driver)"
-                class="text-blue-600 hover:text-blue-800"
-                :disabled="loading">
-                {{ driver.vehicleId ? 'Change Vehicle' : 'Assign Vehicle' }}
+
+            <td class="p-4 space-x-2">
+              <button @click="openModal('vehicle', driver)" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                Change Vehicle
               </button>
-              <button 
-                @click="viewDriverTrips(driver)"
-                class="text-green-600 hover:text-green-800">
-                View Trips
+              <button @click="viewTrips(driver)" class="text-green-600 hover:text-green-800 font-medium text-sm">
+                Trips
               </button>
-              <button 
-                @click="openAssignTripModal(driver)"
-                class="text-purple-600 hover:text-purple-800"
-                :disabled="!driver.vehicleId">
-                Assign Trip
+              <button @click="openModal('trip', driver)" class="text-purple-600 hover:text-purple-800 font-medium text-sm">
+                Assign Job
+              </button>
+              <button @click="deleteDriver(driver.id)" class="text-red-500 hover:text-red-700 font-bold text-sm bg-red-50 px-2 py-1 rounded">
+                Delete 🗑️
               </button>
             </td>
           </tr>
@@ -80,254 +71,118 @@
       </table>
     </div>
 
-    <!-- Assign Vehicle Modal -->
-    <div v-if="showAssignVehicleModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-96">
-        <h2 class="text-xl font-bold mb-4">Assign Vehicle to {{ selectedDriver?.name }}</h2>
-        
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium mb-2">Select Vehicle</label>
-            <select v-model="selectedVehicleId" class="w-full border rounded px-3 py-2">
-              <option value="">-- Select Vehicle --</option>
-              <option v-for="vehicle in availableVehicles" :key="vehicle.id" :value="vehicle.id">
-                {{ vehicle.brand }} - {{ vehicle.plate }} ({{ vehicle.type }})
-              </option>
-            </select>
-          </div>
+    <div v-if="modals.trip" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg w-96">
+            <h3 class="text-lg font-bold mb-4">Assign Trip to {{ selectedDriver?.name }}</h3>
+            <input v-model="tripForm.startLocation" placeholder="Start Location" class="w-full border p-2 mb-2 rounded">
+            <input v-model="tripForm.endLocation" placeholder="End Location" class="w-full border p-2 mb-2 rounded">
+            <input v-model="tripForm.distance" placeholder="Distance (km)" type="number" class="w-full border p-2 mb-4 rounded">
+            <div class="flex justify-end gap-2">
+                <button @click="modals.trip = false" class="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+                <button @click="assignTrip" class="px-4 py-2 bg-purple-600 text-white rounded">Assign</button>
+            </div>
         </div>
-
-        <div class="flex justify-end space-x-2 mt-6">
-          <button @click="closeAssignVehicleModal" class="px-4 py-2 border rounded">Cancel</button>
-          <button 
-            @click="confirmAssignVehicle" 
-            :disabled="!selectedVehicleId || loading"
-            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400">
-            Assign
-          </button>
-        </div>
-      </div>
     </div>
 
-    <!-- Assign Trip Modal -->
-    <div v-if="showAssignTripModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-96">
-        <h2 class="text-xl font-bold mb-4">Assign Trip to {{ selectedDriver?.name }}</h2>
-        
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium mb-1">Start Location *</label>
-            <input v-model="tripForm.startLocation" class="w-full border rounded px-3 py-2" />
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium mb-1">End Location *</label>
-            <input v-model="tripForm.endLocation" class="w-full border rounded px-3 py-2" />
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium mb-1">Distance (km)</label>
-            <input v-model.number="tripForm.distance" type="number" class="w-full border rounded px-3 py-2" />
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium mb-1">Start Time</label>
-            <input v-model="tripForm.startTime" type="datetime-local" class="w-full border rounded px-3 py-2" />
-          </div>
+    <div v-if="modals.history" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg w-2/3 max-h-[80vh] overflow-y-auto">
+            <h3 class="text-lg font-bold mb-4">Trips History: {{ selectedDriver?.name }}</h3>
+            <div v-for="trip in driverTrips" :key="trip.id" class="border-b p-2">
+                {{ trip.startLocation }} -> {{ trip.endLocation }} ({{ trip.distance }} km) - {{ trip.status }}
+            </div>
+            <button @click="modals.history = false" class="mt-4 px-4 py-2 bg-gray-200 rounded">Close</button>
         </div>
-
-        <div class="flex justify-end space-x-2 mt-6">
-          <button @click="showAssignTripModal = false" class="px-4 py-2 border rounded">Cancel</button>
-          <button @click="assignTrip" class="px-4 py-2 bg-blue-600 text-white rounded">Assign</button>
-        </div>
-      </div>
     </div>
 
-    <!-- View Trips Modal -->
-    <div v-if="showTripsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-3/4 max-h-96 overflow-y-auto">
-        <h2 class="text-xl font-bold mb-4">Trips for {{ selectedDriver?.name }}</h2>
-        
-        <div v-if="driverTrips.length === 0" class="text-gray-500 text-center py-4">
-          No trips found for this driver.
-        </div>
-        
-        <table v-else class="min-w-full">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-4 py-2 text-left text-xs">Start</th>
-              <th class="px-4 py-2 text-left text-xs">End</th>
-              <th class="px-4 py-2 text-left text-xs">Time</th>
-              <th class="px-4 py-2 text-left text-xs">Status</th>
-              <th class="px-4 py-2 text-left text-xs">Distance</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="trip in driverTrips" :key="trip.id" class="border-t">
-              <td class="px-4 py-2 text-sm">{{ trip.startLocation }}</td>
-              <td class="px-4 py-2 text-sm">{{ trip.endLocation }}</td>
-              <td class="px-4 py-2 text-sm">{{ formatDate(trip.startTime) }}</td>
-              <td class="px-4 py-2 text-sm">{{ trip.status }}</td>
-              <td class="px-4 py-2 text-sm">{{ trip.distance }} km</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <button @click="showTripsModal = false" class="mt-4 px-4 py-2 bg-gray-600 text-white rounded">
-          Close
-        </button>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, reactive } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/authStore'
 
 const authStore = useAuthStore()
 const drivers = ref([])
-const availableVehicles = ref([])
 const selectedDriver = ref(null)
-const selectedVehicleId = ref('')
-const showAssignVehicleModal = ref(false)
-const showAssignTripModal = ref(false)
-const showTripsModal = ref(false)
 const driverTrips = ref([])
-const loading = ref(false)
 
-const tripForm = ref({
-  startLocation: '',
-  endLocation: '',
-  distance: 0,
-  startTime: ''
+const modals = reactive({
+    trip: false,
+    history: false,
+    vehicle: false
+})
+
+const tripForm = reactive({
+    startLocation: '',
+    endLocation: '',
+    distance: ''
 })
 
 const fetchDrivers = async () => {
   try {
-    console.log('📡 Fetching drivers...')
-    const response = await axios.get('/api/drivers', {
+    const res = await axios.get('/api/drivers', {
       headers: { Authorization: `Bearer ${authStore.token}` }
     })
-    drivers.value = response.data
-    console.log('✅ Drivers loaded:', drivers.value)
+    drivers.value = res.data
   } catch (error) {
-    console.error('❌ Error fetching drivers:', error)
-    alert('Failed to load drivers: ' + (error.response?.data?.message || error.message))
+    console.error('Error fetching drivers:', error)
   }
 }
 
-const fetchAvailableVehicles = async () => {
+// === FUNCTIA NOUA DE STERGERE ===
+const deleteDriver = async (id) => {
+  if (!confirm('ATENȚIE: Această acțiune va șterge șoferul și contul său de utilizator definitiv. Continui?')) return
+
   try {
-    const response = await axios.get('/api/vehicles', {
+    await axios.delete(`/api/drivers/${id}`, {
       headers: { Authorization: `Bearer ${authStore.token}` }
     })
-    availableVehicles.value = response.data.filter(v => v.status === 'AVAILABLE' || v.status === 'IDLE')
+    alert('Driver deleted successfully.')
+    fetchDrivers() // Reîmprospătează lista
   } catch (error) {
-    console.error('Error fetching vehicles:', error)
+    console.error('Delete error:', error)
+    alert('Failed to delete driver.')
   }
 }
 
-const assignVehicle = async (driver) => {
-  selectedDriver.value = driver
-  await fetchAvailableVehicles()
-  selectedVehicleId.value = driver.vehicleId || ''
-  showAssignVehicleModal.value = true
-}
-
-const closeAssignVehicleModal = () => {
-  showAssignVehicleModal.value = false
-  selectedDriver.value = null
-  selectedVehicleId.value = ''
-}
-
-const confirmAssignVehicle = async () => {
-  if (!selectedVehicleId.value) {
-    alert('Please select a vehicle')
-    return
-  }
-
-  loading.value = true
-  try {
-    // Simple approach: Update driver with vehicle_id
-    await axios.put(
-      `/api/drivers/${selectedDriver.value.id}`,
-      { vehicleId: selectedVehicleId.value },
-      { headers: { Authorization: `Bearer ${authStore.token}` } }
-    )
-    
-    alert('Vehicle assigned successfully!')
-    closeAssignVehicleModal()
-    fetchDrivers()
-  } catch (error) {
-    console.error('Error assigning vehicle:', error)
-    alert('Failed to assign vehicle: ' + (error.response?.data?.message || error.message))
-  } finally {
-    loading.value = false
-  }
-}
-
-const openAssignTripModal = (driver) => {
-  if (!driver.vehicleId) {
-    alert('Driver must have a vehicle assigned first!')
-    return
-  }
-  selectedDriver.value = driver
-  tripForm.value = {
-    startLocation: '',
-    endLocation: '',
-    distance: 0,
-    startTime: new Date().toISOString().slice(0, 16)
-  }
-  showAssignTripModal.value = true
+const openModal = (type, driver) => {
+    selectedDriver.value = driver
+    if (type === 'trip') modals.trip = true
+    if (type === 'vehicle') alert('Change Vehicle feature needs Vehicle Component integration') // Simplificat
 }
 
 const assignTrip = async () => {
-  try {
-    await axios.post(
-      `/api/drivers/${selectedDriver.value.id}/assign-trip`,
-      tripForm.value,
-      { headers: { Authorization: `Bearer ${authStore.token}` } }
-    )
-    alert('Trip assigned successfully!')
-    showAssignTripModal.value = false
-    fetchDrivers()
-  } catch (error) {
-    console.error('Error assigning trip:', error)
-    alert('Failed to assign trip: ' + (error.response?.data?.message || error.message))
+    try {
+        await axios.post(`/api/drivers/${selectedDriver.value.id}/assign-trip`, tripForm, {
+            headers: { Authorization: `Bearer ${authStore.token}` }
+        })
+        alert('Trip assigned!')
+        modals.trip = false
+        fetchDrivers()
+    } catch (e) {
+        alert('Failed to assign trip')
+    }
+}
+
+const viewTrips = async (driver) => {
+    selectedDriver.value = driver
+    const res = await axios.get(`/api/trips/driver/${driver.id}`, {
+        headers: { Authorization: `Bearer ${authStore.token}` }
+    })
+    driverTrips.value = res.data
+    modals.history = true
+}
+
+const getStatusClass = (status) => {
+  switch(status) {
+    case 'ON_TRIP': return 'bg-blue-100 text-blue-800'
+    case 'AVAILABLE': return 'bg-green-100 text-green-800'
+    default: return 'bg-gray-100 text-gray-600'
   }
-}
-
-const viewDriverTrips = async (driver) => {
-  selectedDriver.value = driver
-  try {
-    const response = await axios.get(
-      `/api/drivers/${driver.id}/trips`,
-      { headers: { Authorization: `Bearer ${authStore.token}` } }
-    )
-    driverTrips.value = response.data
-    showTripsModal.value = true
-  } catch (error) {
-    console.error('Error fetching trips:', error)
-    alert('Failed to load trips')
-  }
-}
-
-const statusClass = (status) => {
-  return {
-    'AVAILABLE': 'bg-green-100 text-green-800',
-    'ON_TRIP': 'bg-blue-100 text-blue-800',
-    'BUSY': 'bg-yellow-100 text-yellow-800'
-  }[status] || 'bg-gray-100 text-gray-800'
-}
-
-const formatDate = (date) => {
-  return new Date(date).toLocaleString()
 }
 
 onMounted(() => {
-  console.log('🚀 DriversManagement mounted')
   fetchDrivers()
 })
 </script>

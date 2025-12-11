@@ -1,203 +1,106 @@
 package com.smartfleet.service;
 
 import com.smartfleet.dto.VehicleCreateDTO;
-import com.smartfleet.dto.VehicleUpdateDTO;
 import com.smartfleet.dto.VehicleResponseDTO;
+import com.smartfleet.entity.Driver;
 import com.smartfleet.entity.Vehicle;
-import com.smartfleet.repository.VehicleRepository;
 import com.smartfleet.repository.DriverRepository;
+import com.smartfleet.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * Vehicle Service for CRUD operations
- * CRITICAL: Handles brand field in all operations
- */
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
-    private final DriverRepository driverRepository;
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+    private final DriverRepository driverRepository; // Avem nevoie de asta pentru stergere sigura
 
-    /**
-     * Get all vehicles
-     */
+    // ... metodele existente (getAll, create, etc.) ...
+
+    // Păstrează metodele vechi: getAllVehicles, createVehicle,
+    // getAvailableVehicles...
+    // Daca nu le ai la indemana, le pot rescrie, dar adaug aici doar ce e nou:
+
     public List<VehicleResponseDTO> getAllVehicles() {
-        return vehicleRepository.findAll()
-                .stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return vehicleRepository.findAll().stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
-    /**
-     * CRITICAL: Get available vehicles (not assigned to any driver)
-     * Used by drivers in VehicleSelectionView to choose their vehicle
-     */
     public List<VehicleResponseDTO> getAvailableVehicles() {
-        return vehicleRepository.findAll()
-                .stream()
-                .filter(vehicle -> !driverRepository.existsByVehicleId(vehicle.getId()))
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return vehicleRepository.findByStatus("IDLE").stream()
+                .filter(v -> !driverRepository.existsByVehicleId(v.getId()))
+                .map(this::mapToDTO).collect(Collectors.toList());
     }
 
-    /**
-     * Get vehicle by ID
-     */
-    public VehicleResponseDTO getVehicleById(Long id) {
-        Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Vehicle not found: " + id));
-        return mapToResponseDTO(vehicle);
-    }
-
-    /**
-     * Create new vehicle
-     * CRITICAL: Includes brand field
-     */
-    @Transactional
     public VehicleResponseDTO createVehicle(VehicleCreateDTO dto) {
-        if (vehicleRepository.existsByPlate(dto.getPlate())) {
-            throw new RuntimeException("Vehicle with plate already exists: " + dto.getPlate());
-        }
-
         Vehicle vehicle = new Vehicle();
         vehicle.setPlate(dto.getPlate());
-        vehicle.setBrand(dto.getBrand()); // CRITICAL: Set brand
+        vehicle.setBrand(dto.getBrand());
         vehicle.setType(dto.getType());
-        vehicle.setStatus(dto.getStatus() != null ? dto.getStatus() : "IDLE");
-        vehicle.setLat(0.0);
-        vehicle.setLng(0.0);
+        vehicle.setStatus(dto.getStatus());
+        vehicle.setLat(dto.getLat() != null ? dto.getLat() : 46.7712);
+        vehicle.setLng(dto.getLng() != null ? dto.getLng() : 23.5889);
 
-        vehicle = vehicleRepository.save(vehicle);
-        log.info("Vehicle created: {} ({})", vehicle.getPlate(), vehicle.getBrand());
-
-        return mapToResponseDTO(vehicle);
+        return mapToDTO(vehicleRepository.save(vehicle));
     }
 
-    /**
-     * Update vehicle
-     * CRITICAL: Handles brand field updates
-     */
-    @Transactional
-    public VehicleResponseDTO updateVehicle(Long id, VehicleUpdateDTO dto) {
+    public VehicleResponseDTO getVehicleById(Long id) {
+        return vehicleRepository.findById(id).map(this::mapToDTO)
+                .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+    }
+
+    // === METODE NOI (UPDATE & DELETE) ===
+
+    public VehicleResponseDTO updateVehicle(Long id, VehicleCreateDTO dto) {
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Vehicle not found: " + id));
+                .orElseThrow(() -> new RuntimeException("Vehicle not found"));
 
-        if (dto.getPlate() != null && !dto.getPlate().equals(vehicle.getPlate())) {
-            if (vehicleRepository.existsByPlate(dto.getPlate())) {
-                throw new RuntimeException("Vehicle with plate already exists: " + dto.getPlate());
-            }
-            vehicle.setPlate(dto.getPlate());
-        }
+        vehicle.setPlate(dto.getPlate());
+        vehicle.setBrand(dto.getBrand());
+        vehicle.setType(dto.getType());
+        vehicle.setStatus(dto.getStatus());
+        // Nu actualizam locatia aici de obicei, dar se poate daca e nevoie
 
-        if (dto.getBrand() != null) {
-            vehicle.setBrand(dto.getBrand()); // CRITICAL: Update brand
-        }
-        if (dto.getType() != null) {
-            vehicle.setType(dto.getType());
-        }
-        if (dto.getStatus() != null) {
-            vehicle.setStatus(dto.getStatus());
-        }
-        if (dto.getLat() != null) {
-            vehicle.setLat(dto.getLat());
-        }
-        if (dto.getLng() != null) {
-            vehicle.setLng(dto.getLng());
-        }
-
-        vehicle = vehicleRepository.save(vehicle);
-        log.info("Vehicle updated: {} ({})", vehicle.getPlate(), vehicle.getBrand());
-
-        return mapToResponseDTO(vehicle);
+        return mapToDTO(vehicleRepository.save(vehicle));
     }
 
-    /**
-     * Delete vehicle
-     */
     @Transactional
     public void deleteVehicle(Long id) {
-        Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Vehicle not found: " + id));
-        vehicleRepository.delete(vehicle);
-        log.info("Vehicle deleted: {}", vehicle.getPlate());
+        // 1. Gasim daca vreun sofer are masina asta
+        Optional<Driver> driverOpt = driverRepository.findByVehicleId(id);
+
+        // 2. Daca da, il dam jos din masina (Vehicle = null)
+        if (driverOpt.isPresent()) {
+            Driver driver = driverOpt.get();
+            driver.setVehicle(null);
+            driverRepository.save(driver);
+        }
+
+        // 3. Stergem vehiculul
+        vehicleRepository.deleteById(id);
     }
 
-    /**
-     * Get vehicles by status
-     */
-    public List<VehicleResponseDTO> getVehiclesByStatus(String status) {
-        return vehicleRepository.findByStatus(status)
-                .stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get vehicles by type
-     */
-    public List<VehicleResponseDTO> getVehiclesByType(String type) {
-        return vehicleRepository.findByType(type)
-                .stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get vehicles by brand
-     */
-    public List<VehicleResponseDTO> getVehiclesByBrand(String brand) {
-        return vehicleRepository.findByBrand(brand)
-                .stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Search vehicles by plate
-     */
-    public List<VehicleResponseDTO> searchByPlate(String plate) {
-        return vehicleRepository.findByPlate(plate)
-                .map(vehicle -> List.of(mapToResponseDTO(vehicle)))
-                .orElse(List.of());
-    }
-
-    /**
-     * Update vehicle location (for real-time tracking)
-     */
-    @Transactional
-    public void updateVehicleLocation(Long vehicleId, Double lat, Double lng) {
-        Vehicle vehicle = vehicleRepository.findById(vehicleId)
-                .orElseThrow(() -> new RuntimeException("Vehicle not found: " + vehicleId));
-        vehicle.setLat(lat);
-        vehicle.setLng(lng);
-        vehicleRepository.save(vehicle);
-    }
-
-    /**
-     * Map Vehicle entity to ResponseDTO
-     * CRITICAL: Includes brand field
-     */
-    private VehicleResponseDTO mapToResponseDTO(Vehicle vehicle) {
+    // Helper
+    private VehicleResponseDTO mapToDTO(Vehicle v) {
         VehicleResponseDTO dto = new VehicleResponseDTO();
-        dto.setId(vehicle.getId());
-        dto.setPlate(vehicle.getPlate());
-        dto.setBrand(vehicle.getBrand()); // CRITICAL: Include brand
-        dto.setType(vehicle.getType());
-        dto.setStatus(vehicle.getStatus());
-        dto.setLat(vehicle.getLat());
-        dto.setLng(vehicle.getLng());
-        dto.setCreatedAt(vehicle.getCreatedAt() != null ? vehicle.getCreatedAt().format(formatter) : "");
+        dto.setId(v.getId());
+        dto.setPlate(v.getPlate());
+        dto.setBrand(v.getBrand());
+        dto.setType(v.getType());
+        dto.setStatus(v.getStatus());
+        dto.setLat(v.getLat());
+        dto.setLng(v.getLng());
+        dto.setTotalKm(v.getTotalKm());
         return dto;
     }
 
+    // ... restul metodelor de search/filter daca le ai ...
+    public List<VehicleResponseDTO> getVehiclesByStatus(String status) {
+        return vehicleRepository.findByStatus(status).stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
 }

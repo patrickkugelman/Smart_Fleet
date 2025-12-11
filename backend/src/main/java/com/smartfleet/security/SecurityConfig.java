@@ -35,17 +35,28 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        // 1. Endpoint-uri publice
                         .requestMatchers("/api/auth/**", "/api/test/**", "/api/setup/**").permitAll()
-                        .requestMatchers("/ws/**").permitAll()
-                        // Vehicles - Admin can do everything, Driver can only view
+                        .requestMatchers("/ws/**", "/error").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
+
+                        // 2. CRITIC: Permitem SOFERILOR să actualizeze LOCATIA (trebuie pus ÎNAINTE de
+                        // regula generală de PUT)
+                        .requestMatchers(HttpMethod.PUT, "/api/vehicles/*/location").hasAnyRole("ADMIN", "DRIVER")
+
+                        // 3. Reguli generale pentru Vehicule
                         .requestMatchers(HttpMethod.GET, "/api/vehicles/**").hasAnyRole("ADMIN", "DRIVER")
                         .requestMatchers(HttpMethod.POST, "/api/vehicles/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/vehicles/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/vehicles/**").hasRole("ADMIN") // Restul de update-uri
+                                                                                              // doar Admin
                         .requestMatchers(HttpMethod.DELETE, "/api/vehicles/**").hasRole("ADMIN")
-                        // Drivers - Admin has full access, Driver has limited access
+
+                        // 4. Driveri & Curse
                         .requestMatchers("/api/drivers/**").hasAnyRole("ADMIN", "DRIVER")
-                        // Trips - Both can access
                         .requestMatchers("/api/trips/**").hasAnyRole("ADMIN", "DRIVER")
+                        .requestMatchers("/api/fuel-predictions/**").hasAnyRole("ADMIN", "DRIVER")
+
+                        // 5. Orice altceva cere autentificare
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -63,7 +74,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(Arrays.asList("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
 
@@ -71,5 +82,4 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
 }

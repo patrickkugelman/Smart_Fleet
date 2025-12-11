@@ -4,10 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO for driver response
- * CRITICAL: Includes vehicleId for vehicle assignment tracking
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,5 +15,15 @@ public class DriverResponseDTO {
     private String username;
     private String email;
     private String createdAt;
-    private Long vehicleId; // CRITICAL: Nullable - vehicle assignment status
+
+    // Câmpuri CRITICE pentru tabelul de Admin
+    private Long vehicleId;
+    private String vehiclePlate;
+    private String vehicleBrand;
+
+    // Statistici
+    private Integer tripCount;
+
+    // Profil
+    private String avatarUrl;
 }

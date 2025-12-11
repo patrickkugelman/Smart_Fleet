@@ -1,46 +1,46 @@
 <template>
   <div class="fixed bottom-6 right-6 z-50">
-    <!-- Chatbox Container -->
     <div
       v-if="isOpen"
-      class="bg-white rounded-lg shadow-2xl w-96 max-h-96 flex flex-col border border-gray-200"
+      class="bg-white rounded-lg shadow-2xl w-96 flex flex-col border border-gray-200"
+      style="height: 500px;"
     >
-      <!-- Header -->
-      <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+      <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-t-lg flex justify-between items-center shrink-0">
         <div>
-          <p class="font-bold">🤖 Smart Fleet AI Assistant</p>
-          <p class="text-xs text-blue-100">Always here to help</p>
+          <p class="font-bold">🤖 Smart Fleet AI</p>
+          <p class="text-xs text-blue-100">Powered by Llama 3</p>
         </div>
-        <button @click="isOpen = false" class="text-xl hover:text-blue-200">✕</button>
+        <button @click="isOpen = false" class="text-xl hover:text-blue-200">×</button>
       </div>
 
-      <!-- Messages -->
-      <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+      <div ref="messagesContainer" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
         <div v-for="msg in messages" :key="msg.id" :class="msg.sender === 'user' ? 'text-right' : 'text-left'">
           <div
             :class="msg.sender === 'user'
               ? 'bg-blue-600 text-white rounded-lg rounded-tr-none'
-              : 'bg-gray-200 text-gray-800 rounded-lg rounded-tl-none'"
-            class="px-3 py-2 max-w-xs inline-block text-sm"
+              : 'bg-white border border-gray-200 text-gray-800 rounded-lg rounded-tl-none shadow-sm'"
+            class="px-4 py-2 max-w-[85%] inline-block text-sm leading-relaxed"
           >
-            {{ msg.text }}
+            <span v-if="msg.loading">Thinking... ⏳</span>
+            <span v-else>{{ msg.text }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Input -->
-      <div class="border-t p-3 bg-white rounded-b-lg">
+      <div class="border-t p-3 bg-white rounded-b-lg shrink-0">
         <div class="flex space-x-2">
           <input
             v-model="userInput"
             @keyup.enter="sendMessage"
             type="text"
-            placeholder="Ask me anything..."
-            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+            placeholder="Ask about drivers, trips, fuel..."
+            :disabled="isLoading"
+            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm disabled:bg-gray-100"
           />
           <button
             @click="sendMessage"
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            :disabled="isLoading"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 font-medium"
           >
             Send
           </button>
@@ -48,58 +48,97 @@
       </div>
     </div>
 
-    <!-- Toggle Button -->
     <button
       v-if="!isOpen"
       @click="isOpen = true"
-      class="w-14 h-14 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-lg hover:shadow-xl transition flex items-center justify-center text-2xl hover:scale-110"
+      class="w-14 h-14 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-lg hover:shadow-xl transition flex items-center justify-center text-3xl hover:scale-110"
     >
-      💬
+      🤖
     </button>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick, watch } from 'vue'
+import axios from 'axios'
+import { useAuthStore } from '@/stores/authStore'
 
+const authStore = useAuthStore()
 const isOpen = ref(false)
 const userInput = ref('')
+const isLoading = ref(false)
+const messagesContainer = ref(null)
+
 const messages = ref([
   {
     id: 1,
-    text: 'Hi! 👋 I\'m your Smart Fleet AI Assistant. Ask me about vehicles, fuel consumption, routes, or fleet statistics.',
-    sender: 'bot'
+    text: 'Hello! I can see all your live fleet data. Ask me "Where is Dacian going?" or "Which truck is free?"',
+    sender: 'bot',
+    loading: false
   }
 ])
 
-const sendMessage = () => {
-  if (!userInput.value.trim()) return
-
-  // Add user message
-  messages.value.push({
-    id: messages.value.length + 1,
-    text: userInput.value,
-    sender: 'user'
-  })
-
-  // Simulate AI response
-  setTimeout(() => {
-    const responses = [
-      'Smart response! Your fleet is operating efficiently. Keep up the good work! 🚗',
-      'I can help with that! Check your vehicle metrics and fuel analytics for more details.',
-      'That\'s a great question! Your AI route planner can optimize this for you.',
-      'Fleet status is optimal! All vehicles are running smoothly. 📊',
-      'You\'re saving fuel costs with our AI optimization. Great job! 💰'
-    ]
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)]
-    
-    messages.value.push({
-      id: messages.value.length + 1,
-      text: randomResponse,
-      sender: 'bot'
-    })
-  }, 500)
-
-  userInput.value = ''
+const scrollToBottom = async () => {
+  await nextTick()
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+  }
 }
+
+const sendMessage = async () => {
+  if (!userInput.value.trim() || isLoading.value) return
+
+  const question = userInput.value
+  userInput.value = ''
+
+  // 1. Add User Message
+  messages.value.push({
+    id: Date.now(),
+    text: question,
+    sender: 'user',
+    loading: false
+  })
+  scrollToBottom()
+
+  // 2. Add Bot "Thinking" Placeholder
+  const botMsgId = Date.now() + 1
+  messages.value.push({
+    id: botMsgId,
+    text: '',
+    sender: 'bot',
+    loading: true
+  })
+  scrollToBottom()
+  isLoading.value = true
+
+  try {
+    // 3. Call Backend
+    const response = await axios.post('/api/chat/ask', 
+      { question: question },
+      { headers: { Authorization: `Bearer ${authStore.token}` } }
+    )
+
+    // 4. Update Bot Message
+    const botMsgIndex = messages.value.findIndex(m => m.id === botMsgId)
+    if (botMsgIndex !== -1) {
+      messages.value[botMsgIndex].loading = false
+      messages.value[botMsgIndex].text = response.data.response
+    }
+
+  } catch (error) {
+    console.error('AI Error:', error)
+    const botMsgIndex = messages.value.findIndex(m => m.id === botMsgId)
+    if (botMsgIndex !== -1) {
+      messages.value[botMsgIndex].loading = false
+      messages.value[botMsgIndex].text = "Sorry, connection error. Please verify that Ollama Llama 3 is running."
+    }
+  } finally {
+    isLoading.value = false
+    scrollToBottom()
+  }
+}
+
+watch(isOpen, (val) => {
+  if (val) scrollToBottom()
+})
 </script>

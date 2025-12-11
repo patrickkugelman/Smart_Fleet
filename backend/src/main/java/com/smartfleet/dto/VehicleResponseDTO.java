@@ -4,20 +4,19 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO for vehicle response
- * CRITICAL: Includes brand field
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class VehicleResponseDTO {
     private Long id;
     private String plate;
-    private String brand;  // CRITICAL: Brand field
+    private String brand;
     private String type;
     private String status;
+
+    // Câmpuri noi adăugate pentru GPS și Kilometraj
     private Double lat;
     private Double lng;
-    private String createdAt;
+    private Double totalKm;
+    private Double lastServiceKm;
 }

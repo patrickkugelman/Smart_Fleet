@@ -17,6 +17,8 @@ public class TripResponseDTO {
     private String startLocation;
     private String endLocation;
     private Double km;
+    private Double distance; // Adaugat
+    private String status; // Adaugat - CRITIC pentru frontend
     private String startTime;
     private String endTime;
 }

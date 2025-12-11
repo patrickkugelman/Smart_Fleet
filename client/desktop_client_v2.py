@@ -1,0 +1,180 @@
+import requests
+import time
+import sys
+import os
+
+# --- CONFIGURARE ---
+BASE_URL = "http://localhost:8080"
+USERNAME = "eric"       
+PASSWORD = "utcn"
+
+# --- CULORI (Definite local pentru a evita erori de import) ---
+CYAN = '\033[96m'
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+RED = '\033[91m'
+BLUE = '\033[94m'
+RESET = '\033[0m'
+BOLD = '\033[1m'
+
+class DesktopApp:
+    def __init__(self):
+        self.token = None
+        
+    def clear_screen(self):
+        os.system('cls' if os.name == 'nt' else 'clear')
+
+    # --- AUTHENTICATION ---
+    def login(self):
+        print(f"🔐 Logging in as {BOLD}{USERNAME}{RESET}...")
+        try:
+            res = requests.post(f"{BASE_URL}/api/auth/login", json={"username": USERNAME, "password": PASSWORD})
+            if res.status_code == 200:
+                self.token = res.json()['token']
+                print(f"{GREEN}✅ Login Successful!{RESET}")
+                time.sleep(1)
+                return True
+            print(f"{RED}❌ Login Failed: {res.text}{RESET}")
+            return False
+        except Exception as e:
+            print(f"{RED}❌ Connection Error: Is the server running?{RESET}")
+            return False
+
+    # --- CERINTA 1: GET ITEMS (FILTERED) ---
+    def view_active_fleet(self):
+        self.clear_screen()
+        print(f"{BOLD}=== 🚛 ACTIVE FLEET MONITORING (Filtered) ==={RESET}")
+        try:
+            headers = {"Authorization": f"Bearer {self.token}"}
+            # 1. Luam toate vehiculele
+            res = requests.get(f"{BASE_URL}/api/vehicles", headers=headers)
+            
+            if res.status_code == 200:
+                vehicles = res.json()
+                # 2. FILTRARE: Doar cele care sunt ON_TRIP sau ACTIVE
+                active_trucks = [v for v in vehicles if v['status'] == 'ON_TRIP' or v['status'] == 'ACTIVE']
+                
+                if not active_trucks:
+                    print(f"\n{YELLOW}No vehicles are currently on a trip.{RESET}")
+                else:
+                    print(f"\nFound {len(active_trucks)} active vehicles on the road:\n")
+                    print(f"{'PLATE':<15} {'BRAND':<15} {'TYPE':<10} {'COORDS'}")
+                    print("-" * 60)
+                    for v in active_trucks:
+                        coords = f"{v.get('lat', 0):.4f}, {v.get('lng', 0):.4f}"
+                        print(f"{GREEN}{v['plate']:<15} {v['brand']:<15} {v['type']:<10} {coords}{RESET}")
+            else:
+                print(f"{RED}Error fetching data.{RESET}")
+        except Exception as e:
+            print(f"{RED}Error: {e}{RESET}")
+        
+        input(f"\n{BOLD}Press Enter to return to menu...{RESET}")
+
+    # --- CERINTA 2: GET OWNERS AND THEIR ITEMS ---
+    def view_driver_directory(self):
+        self.clear_screen()
+        print(f"{BOLD}=== 👥 DRIVER & VEHICLE DIRECTORY (Owners & Items) ==={RESET}")
+        try:
+            headers = {"Authorization": f"Bearer {self.token}"}
+            # Backend-ul trimite acum si datele despre masina (Owner + Item)
+            res = requests.get(f"{BASE_URL}/api/drivers", headers=headers)
+            
+            if res.status_code == 200:
+                drivers = res.json()
+                print(f"\n{'DRIVER NAME (OWNER)':<25} {'STATUS':<12} {'ASSIGNED VEHICLE (ITEM)'}")
+                print("-" * 70)
+                for d in drivers:
+                    vehicle_info = f"{d.get('vehicleBrand', '')} ({d.get('vehiclePlate', 'Unassigned')})"
+                    if not d.get('vehicleId'):
+                        vehicle_info = f"{YELLOW}No Vehicle Assigned{RESET}"
+                    
+                    status_col = GREEN if d['status'] == 'AVAILABLE' else BLUE
+                    print(f"{d['name']:<25} {status_col}{d['status']:<12}{RESET} {vehicle_info}")
+            else:
+                print(f"{RED}Access Denied (Admin only) or Server Error.{RESET}")
+        except Exception as e:
+            print(f"{RED}Error: {e}{RESET}")
+
+        input(f"\n{BOLD}Press Enter to return to menu...{RESET}")
+
+    # --- CERINTA 3: SEND EMAIL / DATA (Incident Report) ---
+    def send_incident_report(self):
+        self.clear_screen()
+        print(f"{BOLD}=== 🚨 SEND INCIDENT REPORT (Update Data) ==={RESET}")
+        print("This will trigger a system alert via HTTP PUT (Simulating data send).")
+        
+        confirm = input("Are you sure? (y/n): ")
+        if confirm.lower() != 'y': return
+
+        try:
+            headers = {"Authorization": f"Bearer {self.token}"}
+            # Luam ID-ul nostru
+            me_res = requests.get(f"{BASE_URL}/api/drivers/me", headers=headers)
+            my_data = me_res.json()
+            
+            if not my_data.get('vehicleId'):
+                print(f"{RED}You don't have a vehicle assigned to report on!{RESET}")
+                time.sleep(2)
+                return
+
+            vehicle_id = my_data['vehicleId']
+            
+            # Trimitem datele: Schimbam statusul in MAINTENANCE
+            payload = {
+                "plate": my_data['vehiclePlate'],
+                "brand": my_data['vehicleBrand'],
+                "type": "Truck", 
+                "status": "MAINTENANCE" 
+            }
+            
+            res = requests.put(f"{BASE_URL}/api/vehicles/{vehicle_id}", headers=headers, json=payload)
+            
+            if res.status_code == 200:
+                print(f"\n{GREEN}✅ REPORT SENT SUCCESSFULLY!{RESET}")
+                print("Fleet Manager has been notified. Vehicle status set to MAINTENANCE.")
+            else:
+                print(f"{RED}Failed to send report: {res.status_code}{RESET}")
+
+        except Exception as e:
+            print(f"{RED}Error: {e}{RESET}")
+        
+        input(f"\n{BOLD}Press Enter to return to menu...{RESET}")
+
+    # --- MENU PRINCIPAL ---
+    def run(self):
+        if not self.login(): return
+
+        while True:
+            self.clear_screen()
+            print(f"{BOLD}╔════════════════════════════════════════╗{RESET}")
+            print(f"║    🖥️  SMART FLEET DESKTOP CLIENT      ║")
+            print(f"╠════════════════════════════════════════╣")
+            print(f"║ 1. 🚛 Start Driving Simulation         ║")
+            print(f"║ 2. 🗺️  View Active Fleet (Filtered)    ║")
+            print(f"║ 3. 👥 Driver Directory (Owners+Items)  ║")
+            print(f"║ 4. 🚨 Send Incident Report (Data)      ║")
+            print(f"║ 5. 🚪 Exit                             ║")
+            print(f"╚════════════════════════════════════════╝")
+            
+            choice = input("\nSelect an option (1-5): ")
+
+            if choice == '1':
+                print("Launching simulation module...")
+                # Rulează scriptul de simulare
+                os.system("python smart_truck_client.py")
+            elif choice == '2':
+                self.view_active_fleet()
+            elif choice == '3':
+                self.view_driver_directory()
+            elif choice == '4':
+                self.send_incident_report()
+            elif choice == '5':
+                print("Goodbye!")
+                sys.exit()
+            else:
+                print("Invalid option.")
+                time.sleep(1)
+
+if __name__ == "__main__":
+    app = DesktopApp()
+    app.run()

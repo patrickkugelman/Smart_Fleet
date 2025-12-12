@@ -71,6 +71,15 @@
       </table>
     </div>
 
+    <ChangeVehicleModal 
+      v-if="modals.vehicle"
+      :driverId="selectedDriver.id"
+      :driverName="selectedDriver.name"
+      :currentVehicleId="selectedDriver.vehicleId"
+      @close="modals.vehicle = false"
+      @saved="fetchDrivers" 
+    />
+
     <div v-if="modals.trip" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white p-6 rounded-lg w-96">
             <h3 class="text-lg font-bold mb-4">Assign Trip to {{ selectedDriver?.name }}</h3>
@@ -101,6 +110,7 @@
 import { ref, onMounted, reactive } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/authStore'
+import ChangeVehicleModal from '@/components/ChangeVehicleModal.vue' // Importam noua componenta
 
 const authStore = useAuthStore()
 const drivers = ref([])
@@ -130,7 +140,6 @@ const fetchDrivers = async () => {
   }
 }
 
-// === FUNCTIA NOUA DE STERGERE ===
 const deleteDriver = async (id) => {
   if (!confirm('ATENȚIE: Această acțiune va șterge șoferul și contul său de utilizator definitiv. Continui?')) return
 
@@ -139,7 +148,7 @@ const deleteDriver = async (id) => {
       headers: { Authorization: `Bearer ${authStore.token}` }
     })
     alert('Driver deleted successfully.')
-    fetchDrivers() // Reîmprospătează lista
+    fetchDrivers() 
   } catch (error) {
     console.error('Delete error:', error)
     alert('Failed to delete driver.')
@@ -148,8 +157,10 @@ const deleteDriver = async (id) => {
 
 const openModal = (type, driver) => {
     selectedDriver.value = driver
+    
+    // Deschidem modala corecta bazat pe tip
     if (type === 'trip') modals.trip = true
-    if (type === 'vehicle') alert('Change Vehicle feature needs Vehicle Component integration') // Simplificat
+    if (type === 'vehicle') modals.vehicle = true // Aici era problema inainte!
 }
 
 const assignTrip = async () => {

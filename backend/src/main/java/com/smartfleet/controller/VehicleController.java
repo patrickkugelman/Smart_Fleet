@@ -5,7 +5,7 @@ import com.smartfleet.dto.VehicleResponseDTO;
 import com.smartfleet.service.VehicleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize; // Import Important
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,10 +39,8 @@ public class VehicleController {
         return ResponseEntity.ok(vehicleService.createVehicle(dto));
     }
 
-    // === ENDPOINT-URI NOI ===
-
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DRIVER')")
     public ResponseEntity<VehicleResponseDTO> updateVehicle(@PathVariable Long id, @RequestBody VehicleCreateDTO dto) {
         return ResponseEntity.ok(vehicleService.updateVehicle(id, dto));
     }
@@ -54,12 +52,13 @@ public class VehicleController {
         return ResponseEntity.noContent().build();
     }
 
-    // Endpoint pentru locatia GPS (folosit de Python client)
+    // === METODĂ ACTUALIZATĂ ===
+    // Acum apelează service-ul și SALVEAZĂ în DB
     @PutMapping("/{id}/location")
     public ResponseEntity<Void> updateLocation(@PathVariable Long id, @RequestParam Double lat,
             @RequestParam Double lng) {
-        // Logica e in service sau direct pe repo, simplificam aici
-        // Poti implementa in service updateLocation daca nu exista
+
+        vehicleService.updateLocation(id, lat, lng);
         return ResponseEntity.ok().build();
     }
 }

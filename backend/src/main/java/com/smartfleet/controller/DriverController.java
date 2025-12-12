@@ -56,7 +56,8 @@ public class DriverController {
 
     // --- GET ALL DRIVERS ---
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    // MODIFICAT: Permitem si DRIVER sa vada lista (pentru Desktop Client)
+    @PreAuthorize("hasAnyRole('ADMIN', 'DRIVER')")
     public ResponseEntity<List<DriverResponseDTO>> getAllDrivers() {
         List<Driver> drivers = driverRepository.findAll();
         List<DriverResponseDTO> dtos = drivers.stream()
@@ -74,7 +75,7 @@ public class DriverController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // --- DELETE DRIVER (NOU) ---
+    // --- DELETE DRIVER ---
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteDriver(@PathVariable Long id) {
@@ -88,7 +89,7 @@ public class DriverController {
                 driverRepository.save(driver);
             }
 
-            // 2. Stergem user-ul asociat (optional, dar recomandat)
+            // 2. Stergem user-ul asociat
             User user = driver.getUser();
 
             // 3. Stergem driver-ul

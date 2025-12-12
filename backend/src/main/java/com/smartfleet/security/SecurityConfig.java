@@ -40,15 +40,14 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**", "/error").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
 
-                        // 2. CRITIC: Permitem SOFERILOR să actualizeze LOCATIA (trebuie pus ÎNAINTE de
-                        // regula generală de PUT)
+                        // 2. CRITIC: Permitem SOFERILOR să actualizeze LOCATIA
                         .requestMatchers(HttpMethod.PUT, "/api/vehicles/*/location").hasAnyRole("ADMIN", "DRIVER")
 
                         // 3. Reguli generale pentru Vehicule
                         .requestMatchers(HttpMethod.GET, "/api/vehicles/**").hasAnyRole("ADMIN", "DRIVER")
                         .requestMatchers(HttpMethod.POST, "/api/vehicles/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/vehicles/**").hasRole("ADMIN") // Restul de update-uri
-                                                                                              // doar Admin
+                        // MODIFICAT: Permitem si DRIVER pentru Incident Report (PUT)
+                        .requestMatchers(HttpMethod.PUT, "/api/vehicles/**").hasAnyRole("ADMIN", "DRIVER")
                         .requestMatchers(HttpMethod.DELETE, "/api/vehicles/**").hasRole("ADMIN")
 
                         // 4. Driveri & Curse

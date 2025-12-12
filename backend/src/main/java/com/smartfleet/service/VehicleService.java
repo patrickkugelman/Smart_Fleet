@@ -19,20 +19,14 @@ import java.util.stream.Collectors;
 public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
-    private final DriverRepository driverRepository; // Avem nevoie de asta pentru stergere sigura
-
-    // ... metodele existente (getAll, create, etc.) ...
-
-    // Păstrează metodele vechi: getAllVehicles, createVehicle,
-    // getAvailableVehicles...
-    // Daca nu le ai la indemana, le pot rescrie, dar adaug aici doar ce e nou:
+    private final DriverRepository driverRepository;
 
     public List<VehicleResponseDTO> getAllVehicles() {
         return vehicleRepository.findAll().stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
     public List<VehicleResponseDTO> getAvailableVehicles() {
-        return vehicleRepository.findByStatus("IDLE").stream()
+        return vehicleRepository.findByStatus("AVAILABLE").stream() // Sau "IDLE" daca asa ai in DB
                 .filter(v -> !driverRepository.existsByVehicleId(v.getId()))
                 .map(this::mapToDTO).collect(Collectors.toList());
     }
@@ -54,8 +48,6 @@ public class VehicleService {
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
     }
 
-    // === METODE NOI (UPDATE & DELETE) ===
-
     public VehicleResponseDTO updateVehicle(Long id, VehicleCreateDTO dto) {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
@@ -64,28 +56,42 @@ public class VehicleService {
         vehicle.setBrand(dto.getBrand());
         vehicle.setType(dto.getType());
         vehicle.setStatus(dto.getStatus());
-        // Nu actualizam locatia aici de obicei, dar se poate daca e nevoie
+
+        if (dto.getLat() != null)
+            vehicle.setLat(dto.getLat());
+        if (dto.getLng() != null)
+            vehicle.setLng(dto.getLng());
 
         return mapToDTO(vehicleRepository.save(vehicle));
     }
 
+    // === METODĂ NOUĂ CRITICĂ PENTRU SIMULARE ===
+    @Transactional
+    public void updateLocation(Long id, Double lat, Double lng) {
+        Vehicle vehicle = vehicleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+
+        vehicle.setLat(lat);
+        vehicle.setLng(lng);
+        // Putem actualiza si statusul automat daca e cazul
+        if ("AVAILABLE".equals(vehicle.getStatus()) || "IDLE".equals(vehicle.getStatus())) {
+            vehicle.setStatus("ON_TRIP");
+        }
+
+        vehicleRepository.save(vehicle);
+    }
+
     @Transactional
     public void deleteVehicle(Long id) {
-        // 1. Gasim daca vreun sofer are masina asta
         Optional<Driver> driverOpt = driverRepository.findByVehicleId(id);
-
-        // 2. Daca da, il dam jos din masina (Vehicle = null)
         if (driverOpt.isPresent()) {
             Driver driver = driverOpt.get();
             driver.setVehicle(null);
             driverRepository.save(driver);
         }
-
-        // 3. Stergem vehiculul
         vehicleRepository.deleteById(id);
     }
 
-    // Helper
     private VehicleResponseDTO mapToDTO(Vehicle v) {
         VehicleResponseDTO dto = new VehicleResponseDTO();
         dto.setId(v.getId());
@@ -96,11 +102,7 @@ public class VehicleService {
         dto.setLat(v.getLat());
         dto.setLng(v.getLng());
         dto.setTotalKm(v.getTotalKm());
+        dto.setLastServiceKm(v.getLastServiceKm());
         return dto;
-    }
-
-    // ... restul metodelor de search/filter daca le ai ...
-    public List<VehicleResponseDTO> getVehiclesByStatus(String status) {
-        return vehicleRepository.findByStatus(status).stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 }

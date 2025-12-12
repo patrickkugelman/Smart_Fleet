@@ -6,16 +6,18 @@ import os
 
 # --- CONFIGURARE ---
 BASE_URL = "http://localhost:8080"
-USERNAME = "eric"       
-PASSWORD = "password123"
+USERNAME = "Dragos"       
+PASSWORD = "utcn"   # <--- AICI AM SCHIMBAT PAROLA (era password123)
+
 
 # Ruta (Cluj -> Hamburg simplificata)
 ROUTE_WAYPOINTS = [
     {"name": "Cluj-Napoca, RO", "lat": 46.7712, "lng": 23.5889},
     {"name": "Budapest, HU",    "lat": 47.4979, "lng": 19.0402},
     {"name": "Vienna, AT",      "lat": 48.2082, "lng": 16.3738},
-    {"name": "Berlin, DE",      "lat": 52.5200, "lng": 13.4050},
-    {"name": "Hamburg, DE",     "lat": 53.5511, "lng": 9.9937}
+    {"name": "Milan, IT",       "lat": 45.4642, "lng": 9.1900},
+    {"name": "Barcelona, ES",   "lat": 41.3851, "lng": 2.1734},
+    {"name": "Madrid, ES",      "lat": 40.4168, "lng": -3.7038}
 ]
 
 # Culori
@@ -86,7 +88,7 @@ class SmartTruck:
 
     def run_simulation(self):
         if not self.login() or not self.init_vehicle():
-            print("❌ Connection failed.")
+            print(f"❌ Connection failed. Check password for user '{USERNAME}'.")
             return
 
         print("✅ Truck Systems Online. Cooling Cargo...")
@@ -106,7 +108,6 @@ class SmartTruck:
                 curr_lng = start['lng'] + (lng_step * step)
                 
                 # --- SIMULARE ---
-                # 1. Temperatura fluctuanta
                 if random.randint(0, 100) > 95: self.cargo_temp += 0.5 
                 else: 
                     if self.cargo_temp > -22: self.cargo_temp -= 0.1
@@ -118,7 +119,6 @@ class SmartTruck:
                 else:
                     self.status = "ON_TRIP"
 
-                # 2. Viteza si Consum
                 target_speed = 90
                 if self.speed < target_speed: self.speed += 5
                 self.fuel_level -= 0.05
